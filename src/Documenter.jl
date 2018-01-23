@@ -40,7 +40,6 @@ end
 
 include("Utilities/Utilities.jl")
 include("DocSystem.jl")
-include("Selectors.jl")
 include("Formats.jl")
 include("Anchors.jl")
 include("Documents.jl")
@@ -53,6 +52,8 @@ include("Writers/Writers.jl")
 include("Deps.jl")
 include("Generator.jl")
 include("Travis.jl")
+
+import .Utilities: Selectors
 
 
 # User Interface.
