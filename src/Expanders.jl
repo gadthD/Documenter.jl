@@ -5,7 +5,6 @@ module Expanders
 
 import ..Documenter:
     Anchors,
-    Builder,
     Documents,
     Formats,
     Documenter,
@@ -26,7 +25,7 @@ import Compat.Base64: stringmime
 
 
 function expand(doc::Documents.Document)
-    for (src, page) in doc.internal.pages
+    for (src, page) in doc.blueprint.pages
         empty!(page.globals.meta)
         for element in page.elements
             Selectors.dispatch(ExpanderPipeline, element, page, doc)
@@ -241,6 +240,7 @@ function Selectors.runner(::Type{MetaBlocks}, x, page, doc)
         end
     end
     page.mapping[x] = MetaNode(copy(meta))
+    println("walkf: $(object_id(page.mapping[x]))")
 end
 
 # @docs

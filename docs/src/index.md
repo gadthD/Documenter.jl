@@ -2,6 +2,11 @@
 
 *A documentation generator for Julia.*
 
+```jldoctest
+julia> 2 + 2
+5
+```
+
 A package for building documentation from docstrings and markdown files.
 
 !!! note

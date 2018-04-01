@@ -10,6 +10,7 @@ import ..Documenter:
     Expanders,
     Documenter,
     Utilities,
+    Utilities.Markdown2,
     Walkers,
     IdDict
 
@@ -117,7 +118,8 @@ the document generation when an error is thrown. Use `doctest = false` keyword i
 function doctest(doc::Documents.Document)
     if doc.user.doctest === :fix || doc.user.doctest
         println(" > running doctests.")
-        for (src, page) in doc.internal.pages
+        for (src, page) in doc.blueprint.pages
+            info(page.globals.meta)
             empty!(page.globals.meta)
             for element in page.elements
                 page.globals.meta[:CurrentFile] = page.source
@@ -137,6 +139,10 @@ function __ans__!(m::Module, value)
 end
 
 function doctest(block::Markdown.Code, meta::Dict, doc::Documents.Document, page)
+    doctest(Markdown2._convert_block(block), meta, doc, page)
+end
+
+function doctest(block::Markdown2.CodeBlock, meta::Dict, doc::Documents.Document, page)
     lang = block.language
     if startswith(lang, "jldoctest")
         # Define new module or reuse an old one from this page if we have a named doctest.
@@ -150,7 +156,8 @@ function doctest(block::Markdown.Code, meta::Dict, doc::Documents.Document, page
         end
 
         # Normalise line endings.
-        block.code = replace(block.code, "\r\n" => "\n")
+        #block.code = replace(block.code, "\r\n" => "\n")
+        block = Markdown2.CodeBlock(block.language, replace(block.code, "\r\n" => "\n"))
 
         # parse keyword arguments to doctest
         d = Dict()
@@ -184,10 +191,10 @@ function doctest(block::Markdown.Code, meta::Dict, doc::Documents.Document, page
         end
         if occursin(r"^julia> "m, block.code)
             eval_repl(block, sandbox, meta, doc, page)
-            block.language = "julia-repl"
+            #block.language = "julia-repl"
         elseif occursin(r"^# output$"m, block.code)
             eval_script(block, sandbox, meta, doc, page)
-            block.language = "julia"
+            #block.language = "julia"
         else
             push!(doc.internal.errors, :doctest)
             file = meta[:CurrentFile]
@@ -217,7 +224,7 @@ end
 # Doctest evaluation.
 
 mutable struct Result
-    block  :: Markdown.Code # The entire code block that is being tested.
+    block  :: Union{Markdown.Code, Markdown2.CodeBlock} # The entire code block that is being tested.
     input  :: String # Part of `block.code` representing the current input.
     output :: String # Part of `block.code` representing the current expected output.
     file   :: String # File in which the doctest is written. Either `.md` or `.jl`.
@@ -438,7 +445,8 @@ function fix_doctest(result::Result, str, doc::Documents.Document)
     newcode *= replace(code[nextind(code, last(inputidx)):end], result.output => str, count = 1)
     # replace internal code block with the non-indented new code, needed if we come back
     # looking to replace output in the same code block later
-    result.block.code = newcode
+    #result.block.code = newcode
+    result.block = Markdown2.CodeBlock(result.block.language, newcode)
     # write the new code snippet to the stream, with indent
     newcode = replace(newcode, r"^(.+)$"m => Base.SubstitutionString(indent * "\\1"))
     write(io, newcode)
@@ -518,7 +526,7 @@ function footnotes(doc::Documents.Document)
     # For all ids the final result should be `(N, 1)` where `N > 1`, i.e. one or more
     # footnote references and a single footnote body.
     footnotes = Dict{Documents.Page, Dict{String, Tuple{Int, Int}}}()
-    for (src, page) in doc.internal.pages
+    for (src, page) in doc.blueprint.pages
         empty!(page.globals.meta)
         orphans = Dict{String, Tuple{Int, Int}}()
         for element in page.elements
@@ -573,7 +581,7 @@ function linkcheck(doc::Documents.Document)
     if doc.user.linkcheck
         if hascurl()
             println(" > checking external URLs:")
-            for (src, page) in doc.internal.pages
+            for (src, page) in doc.blueprint.pages
                 println("   - ", src)
                 for element in page.elements
                     Walkers.walk(page.globals.meta, page.mapping[element]) do block
